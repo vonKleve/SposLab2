@@ -14,6 +14,19 @@ public class ILamportLock implements ImprovedBakeryLock{
             priority = ib;
         }
         
+        Pair(Pair obj){
+            key = obj.key;
+            priority = obj.priority;
+        }
+        
+        public void setKey(Integer ikey){
+            key = ikey;
+        }
+        
+        public void setPrior(Integer iprior){
+            priority = iprior;
+        }
+        
         @Override
         public int compareTo(Object ix){
             Pair x = (Pair)ix;
@@ -44,9 +57,9 @@ public class ILamportLock implements ImprovedBakeryLock{
         synchronized(isInitialized){
             if(!isInitialized){
                 for(int i = 0; i < threads; i++){
-                    tickets.add(new Pair(-1, 0));
+                    tickets.add(new Pair(-1, -1));
                     entering.add(false);
-                    freeUsedTickets.add(new Pair(i + 1,0));
+                    freeUsedTickets.add(new Pair(i,0));
                 }
                 isInitialized = true;
             }
@@ -97,9 +110,10 @@ public class ILamportLock implements ImprovedBakeryLock{
     
     @Override
     public void unlock(Integer pid){
-        Pair freeTicket = tickets.get(pid);
-        freeTicket.priority++;
-        tickets.set(pid, new Pair(-1, 0));
+        Pair freeTicket = new Pair(tickets.get(pid));
+        freeTicket.setPrior(freeTicket.priority + 1);
+        tickets.get(pid).setKey(-1);
+        tickets.get(pid).setPrior(-1);
         
 
         synchronized(freeUsedTickets){
@@ -125,12 +139,14 @@ public class ILamportLock implements ImprovedBakeryLock{
         for(int i = 0; i < threads; i++){
            if(i == pid){ continue; }
            while(entering.get(i)){ Thread.yield(); }
-           while(tickets.get(pid).key > tickets.get(i).key && 
-                   tickets.get(pid).priority >= tickets.get(i).priority && 
-                   tickets.get(i).key != -1){ Thread.yield(); }
+           while(tickets.get(pid).priority > tickets.get(i).priority && tickets.get(i).priority != -1){ Thread.yield(); }
+           if(tickets.get(i).priority.equals(tickets.get(pid).priority)){
+               while(tickets.get(i).key != -1 && tickets.get(pid).key >= tickets.get(i).key){ Thread.yield(); }}
 //                if(tickets.get(i).equals(tickets.get(pid))){        // to prove that there is no duplicates
 //                    System.out.println("WARNING!!! DUPLICATE FOR " + pid + " IN " + i);
-//                }
+//               }
         }
+        
+       // System.out.println(freeUsedTickets);
     }
 }
